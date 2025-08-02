@@ -1,67 +1,51 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <title>모두의책갈피 - ISBN 스캐너 데모</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISBN 스캔 데모</title>
   <script src="https://unpkg.com/@zxing/library@latest"></script>
-  <style>
-    body { font-family: sans-serif; text-align: center; margin: 20px; }
-    video { width: 80%; max-width: 400px; border: 2px solid #ccc; border-radius: 8px; }
-    #result { margin-top: 20px; font-size: 1.1em; }
-    .book-info { margin-top: 20px; text-align: left; display: inline-block; }
-    .book-info h3 { margin: 0; }
-  </style>
 </head>
 <body>
-  <h1>📚 모두의책갈피 - ISBN 스캐너 데모</h1>
+  <h1>ISBN 스캔 데모</h1>
+  <video id="video" width="300" height="200" style="border:1px solid black"></video>
+  <p id="result">ISBN: </p>
   <button id="start">스캔 시작</button>
-  <br><br>
-  <video id="video" autoplay></video>
-  <div id="result">ISBN: (아직 없음)</div>
-  <div id="book"></div>
+  <button id="reset">멈추기</button>
 
   <script>
-    const D4L_KEY = "357bf08d7987b0e62bf41932ca82aec68a58e97a4e60e3f5bd4e350052b99fd3"; // 🔑 발급받은 키
     const codeReader = new ZXing.BrowserMultiFormatReader();
+    let controls = null;
 
-    document.getElementById('start').addEventListener('click', () => {
-      codeReader.decodeFromVideoDevice(null, 'video', (result, err) => {
-        if (result) {
-          const isbn = result.text;
-          document.getElementById('result').textContent = "ISBN: " + isbn;
-          fetchBookInfo(isbn);
-          codeReader.reset(); // 스캔 후 멈춤
-        }
-      });
+    document.getElementById('start').addEventListener('click', async () => {
+      try {
+        // 👉 ISBN(EAN-13) 전용으로 제한
+        const hints = new Map();
+        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13]);
+
+        controls = await codeReader.decodeFromVideoDevice(
+          null, 
+          'video', 
+          (result, err) => {
+            if (result) {
+              document.getElementById('result').textContent = "ISBN: " + result.text;
+              controls.stop(); // 스캔 성공 시 멈추기
+            }
+          },
+          { video: { facingMode: "environment" }, hints }
+        );
+      } catch (err) {
+        console.error(err);
+        alert("카메라 접근 실패: 권한을 확인해주세요!");
+      }
     });
 
-    async function fetchBookInfo(isbn) {
-      const url = `https://data4library.kr/api/srchDtlList?authKey=${D4L_KEY}&isbn13=${isbn}&format=json`;
-      try {
-        const res = await fetch(url);
-        const data = await res.json();
-        console.log("API 응답:", data);
-
-        if (data?.response?.detail?.length > 0) {
-          const book = data.response.detail[0].book;
-          document.getElementById('book').innerHTML = `
-            <div class="book-info">
-              <h3>${book.bookname}</h3>
-              <p>저자: ${book.authors}</p>
-              <p>출판사: ${book.publisher}</p>
-              <p>출판일: ${book.publication_year}</p>
-              <p>쪽수: ${book.page}</p>
-              <p>ISBN: ${book.isbn13}</p>
-            </div>
-          `;
-        } else {
-          document.getElementById('book').innerHTML = "<p>❌ 책 정보를 찾을 수 없습니다.</p>";
-        }
-      } catch (e) {
-        console.error("API 호출 오류", e);
-        document.getElementById('book').innerHTML = "<p>⚠️ API 호출 오류</p>";
+    document.getElementById('reset').addEventListener('click', () => {
+      if (controls) {
+        controls.stop();
+        document.getElementById('result').textContent = "ISBN: ";
       }
-    }
+    });
   </script>
 </body>
 </html>

@@ -2,41 +2,57 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>ISBN 스캔 테스트 (EAN-13 전용)</title>
+  <title>모두의책갈피 데모</title>
   <script src="https://unpkg.com/@zxing/library@latest"></script>
 </head>
 <body>
-  <h1>📚 ISBN 스캔 (EAN-13 전용)</h1>
-  <video id="video" width="300" height="200" style="border:1px solid black"></video>
-  <p>인식된 ISBN: <span id="result">아직 없음</span></p>
+  <h1>📚 모두의책갈피 데모</h1>
+  <video id="video" width="320" height="240" style="border:1px solid black"></video>
+  
+  <p>인식된 ISBN: <span id="isbn">없음</span></p>
+  <div id="book-info"></div>
 
   <script>
     const hints = new Map();
-    // ✅ ISBN은 대부분 EAN-13 바코드
     hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13]);
-    
     const codeReader = new ZXing.BrowserMultiFormatReader(hints);
+
     const video = document.getElementById('video');
-    const resultEl = document.getElementById('result');
+    const isbnEl = document.getElementById('isbn');
+    const infoEl = document.getElementById('book-info');
 
-    codeReader
-      .listVideoInputDevices()
-      .then(videoInputDevices => {
-        const deviceId = videoInputDevices.length > 1
-          ? videoInputDevices[videoInputDevices.length - 1].deviceId
-          : videoInputDevices[0].deviceId;
+    async function fetchBook(isbn) {
+      const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+      const data = await res.json();
+      if (data.totalItems > 0) {
+        const book = data.items[0].volumeInfo;
+        infoEl.innerHTML = `
+          <h2>${book.title}</h2>
+          <p><strong>저자:</strong> ${book.authors ? book.authors.join(", ") : "알 수 없음"}</p>
+          ${book.imageLinks?.thumbnail ? `<img src="${book.imageLinks.thumbnail}" alt="책 표지">` : ""}
+        `;
+      } else {
+        infoEl.innerHTML = "<p>❌ 책 정보를 찾을 수 없습니다.</p>";
+      }
+    }
 
-        codeReader.decodeFromVideoDevice(deviceId, video, (result, err) => {
-          if (result) {
-            resultEl.textContent = result.getText();
-            console.log("📌 인식된 ISBN:", result.getText());
-          }
-          if (err && !(err instanceof ZXing.NotFoundException)) {
-            console.error("에러 발생:", err);
-          }
-        });
-      })
-      .catch(err => console.error(err));
+    codeReader.listVideoInputDevices().then(videoInputDevices => {
+      const deviceId = videoInputDevices.length > 1
+        ? videoInputDevices[videoInputDevices.length - 1].deviceId
+        : videoInputDevices[0].deviceId;
+
+      codeReader.decodeFromVideoDevice(deviceId, video, (result, err) => {
+        if (result) {
+          const isbn = result.getText();
+          isbnEl.textContent = isbn;
+          console.log("📌 인식된 ISBN:", isbn);
+          fetchBook(isbn); // 책 정보 불러오기
+        }
+        if (err && !(err instanceof ZXing.NotFoundException)) {
+          console.error("에러 발생:", err);
+        }
+      });
+    });
   </script>
 </body>
 </html>

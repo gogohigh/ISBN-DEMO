@@ -2,19 +2,50 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>ISBN 스캔 테스트 (EAN-13 전용)</title>
+  <title>📚 ISBN 전용 스캐너</title>
   <script src="https://unpkg.com/@zxing/library@latest"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+    }
+    #video {
+      width: 320px;
+      height: 240px;
+      border: 2px solid black;
+      position: relative;
+    }
+    /* 빨간 가이드 박스 */
+    #overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 220px;
+      height: 80px;
+      border: 2px solid red;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    .scanner-container {
+      position: relative;
+      display: inline-block;
+    }
+  </style>
 </head>
 <body>
-  <h1>📚 ISBN 스캔 (EAN-13 전용)</h1>
-  <video id="video" width="300" height="200" style="border:1px solid black"></video>
+  <h1>📖 ISBN 스캔 (EAN-13 전용)</h1>
+  <div class="scanner-container">
+    <video id="video" autoplay></video>
+    <div id="overlay"></div>
+  </div>
   <p>인식된 ISBN: <span id="result">아직 없음</span></p>
 
   <script>
     const hints = new Map();
-    // ✅ ISBN은 대부분 EAN-13 바코드
     hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13]);
-    
+
     const codeReader = new ZXing.BrowserMultiFormatReader(hints);
     const video = document.getElementById('video');
     const resultEl = document.getElementById('result');
@@ -22,21 +53,27 @@
     codeReader
       .listVideoInputDevices()
       .then(videoInputDevices => {
+        // 후면 카메라 선택 (마지막 장치 사용)
         const deviceId = videoInputDevices.length > 1
           ? videoInputDevices[videoInputDevices.length - 1].deviceId
           : videoInputDevices[0].deviceId;
 
         codeReader.decodeFromVideoDevice(deviceId, video, (result, err) => {
           if (result) {
-            resultEl.textContent = result.getText();
-            console.log("📌 인식된 ISBN:", result.getText());
+            const isbn = result.getText();
+            resultEl.textContent = isbn;
+            console.log("📌 인식된 ISBN:", isbn);
+            alert("인식 성공! ISBN: " + isbn);
+
+            // 성공 시 멈추고 싶다면 ↓ 주석 해제
+            // codeReader.reset();
           }
           if (err && !(err instanceof ZXing.NotFoundException)) {
             console.error("에러 발생:", err);
           }
         });
       })
-      .catch(err => console.error(err));
+      .catch(err => console.error("카메라 접근 에러:", err));
   </script>
 </body>
 </html>

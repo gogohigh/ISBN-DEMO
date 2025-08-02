@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+    <title>ISBN 바코드 스캐너</title>
+      <style>
+          body { font-family: sans-serif; text-align: center; }
+              #interactive { width: 100%; max-width: 400px; margin: auto; border: 2px solid #333; }
+                  #result { margin-top: 20px; font-size: 18px; font-weight: bold; color: green; white-space: pre-line; }
+                    </style>
+                    </head>
+                    <body>
+                      <h1>📚 ISBN 바코드 스캐너</h1>
+                        <div id="interactive"></div>
+                          <div id="result">👉 책의 ISBN을 카메라에 비춰보세요</div>
+
+                            <!-- QuaggaJS 불러오기 -->
+                              <script src="https://unpkg.com/quagga/dist/quagga.min.js"></script>
+                                <script>
+                                    const API_KEY = "YOUR_API_KEY"; // Data4Library API 키 넣기
+
+                                        Quagga.init({
+                                              inputStream: {
+                                                      name: "Live",
+                                                              type: "LiveStream",
+                                                                      target: document.querySelector('#interactive'),
+                                                                              constraints: { facingMode: "environment" }
+                                                                                    },
+                                                                                          decoder: { readers: ["ean_reader"] } // ISBN-13 = EAN-13 규격
+                                                                                              }, function(err) {
+                                                                                                    if (err) { console.error(err); return; }
+                                                                                                          console.log("Quagga 초기화 완료");
+                                                                                                                Quagga.start();
+                                                                                                                    });
+
+                                                                                                                        // 스캔 성공 시 실행
+                                                                                                                            Quagga.onDetected(async function(data) {
+                                                                                                                                  const isbn = data.codeResult.code;
+                                                                                                                                        document.getElementById("result").innerText = "📖 ISBN: " + isbn + "\n책 정보를 불러오는 중...";
+
+                                                                                                                                              try {
+                                                                                                                                                      const res = await fetch(`http://data4library.kr/api/srchDtlList?authKey=${API_KEY}&isbn13=${isbn}&format=json`);
+                                                                                                                                                              const json = await res.json();
+                                                                                                                                                                      const book = json.response.docs[0]?.doc;
+
+                                                                                                                                                                              if (book) {
+                                                                                                                                                                                        document.getElementById("result").innerText =
+                                                                                                                                                                                                    `📖 ISBN: ${isbn}\n제목: ${book.bookname}\n저자: ${book.authors}\n출판사: ${book.publisher}`;
+                                                                                                                                                                                                            } else {
+                                                                                                                                                                                                                      document.getElementById("result").innerText = `📖 ISBN: ${isbn}\n책 정보를 찾을 수 없습니다.`;
+                                                                                                                                                                                                                              }
+                                                                                                                                                                                                                                    } catch (err) {
+                                                                                                                                                                                                                                            console.error(err);
+                                                                                                                                                                                                                                                    document.getElementById("result").innerText = "❌ 책 정보를 불러오는 중 오류가 발생했습니다.";
+                                                                                                                                                                                                                                                          }
+                                                                                                                                                                                                                                                              });
+                                                                                                                                                                                                                                                                </script>
+                                                                                                                                                                                                                                                                </body>
+                                                                                                                                                                                                                                                                </html>

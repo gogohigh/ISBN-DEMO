@@ -2,57 +2,66 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>모두의책갈피 데모</title>
+  <title>모두의책갈피 - ISBN 스캐너 데모</title>
   <script src="https://unpkg.com/@zxing/library@latest"></script>
+  <style>
+    body { font-family: sans-serif; text-align: center; margin: 20px; }
+    video { width: 80%; max-width: 400px; border: 2px solid #ccc; border-radius: 8px; }
+    #result { margin-top: 20px; font-size: 1.1em; }
+    .book-info { margin-top: 20px; text-align: left; display: inline-block; }
+    .book-info h3 { margin: 0; }
+  </style>
 </head>
 <body>
-  <h1>📚 모두의책갈피 데모</h1>
-  <video id="video" width="320" height="240" style="border:1px solid black"></video>
-  
-  <p>인식된 ISBN: <span id="isbn">없음</span></p>
-  <div id="book-info"></div>
+  <h1>📚 모두의책갈피 - ISBN 스캐너 데모</h1>
+  <button id="start">스캔 시작</button>
+  <br><br>
+  <video id="video" autoplay></video>
+  <div id="result">ISBN: (아직 없음)</div>
+  <div id="book"></div>
 
   <script>
-    const hints = new Map();
-    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13]);
-    const codeReader = new ZXing.BrowserMultiFormatReader(hints);
+    const D4L_KEY = "357bf08d7987b0e62bf41932ca82aec68a58e97a4e60e3f5bd4e350052b99fd3"; // 🔑 발급받은 키
+    const codeReader = new ZXing.BrowserMultiFormatReader();
 
-    const video = document.getElementById('video');
-    const isbnEl = document.getElementById('isbn');
-    const infoEl = document.getElementById('book-info');
-
-    async function fetchBook(isbn) {
-      const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
-      const data = await res.json();
-      if (data.totalItems > 0) {
-        const book = data.items[0].volumeInfo;
-        infoEl.innerHTML = `
-          <h2>${book.title}</h2>
-          <p><strong>저자:</strong> ${book.authors ? book.authors.join(", ") : "알 수 없음"}</p>
-          ${book.imageLinks?.thumbnail ? `<img src="${book.imageLinks.thumbnail}" alt="책 표지">` : ""}
-        `;
-      } else {
-        infoEl.innerHTML = "<p>❌ 책 정보를 찾을 수 없습니다.</p>";
-      }
-    }
-
-    codeReader.listVideoInputDevices().then(videoInputDevices => {
-      const deviceId = videoInputDevices.length > 1
-        ? videoInputDevices[videoInputDevices.length - 1].deviceId
-        : videoInputDevices[0].deviceId;
-
-      codeReader.decodeFromVideoDevice(deviceId, video, (result, err) => {
+    document.getElementById('start').addEventListener('click', () => {
+      codeReader.decodeFromVideoDevice(null, 'video', (result, err) => {
         if (result) {
-          const isbn = result.getText();
-          isbnEl.textContent = isbn;
-          console.log("📌 인식된 ISBN:", isbn);
-          fetchBook(isbn); // 책 정보 불러오기
-        }
-        if (err && !(err instanceof ZXing.NotFoundException)) {
-          console.error("에러 발생:", err);
+          const isbn = result.text;
+          document.getElementById('result').textContent = "ISBN: " + isbn;
+          fetchBookInfo(isbn);
+          codeReader.reset(); // 스캔 후 멈춤
         }
       });
     });
+
+    async function fetchBookInfo(isbn) {
+      const url = `https://data4library.kr/api/srchDtlList?authKey=${D4L_KEY}&isbn13=${isbn}&format=json`;
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        console.log("API 응답:", data);
+
+        if (data?.response?.detail?.length > 0) {
+          const book = data.response.detail[0].book;
+          document.getElementById('book').innerHTML = `
+            <div class="book-info">
+              <h3>${book.bookname}</h3>
+              <p>저자: ${book.authors}</p>
+              <p>출판사: ${book.publisher}</p>
+              <p>출판일: ${book.publication_year}</p>
+              <p>쪽수: ${book.page}</p>
+              <p>ISBN: ${book.isbn13}</p>
+            </div>
+          `;
+        } else {
+          document.getElementById('book').innerHTML = "<p>❌ 책 정보를 찾을 수 없습니다.</p>";
+        }
+      } catch (e) {
+        console.error("API 호출 오류", e);
+        document.getElementById('book').innerHTML = "<p>⚠️ API 호출 오류</p>";
+      }
+    }
   </script>
 </body>
 </html>

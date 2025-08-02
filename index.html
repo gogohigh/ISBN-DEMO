@@ -2,37 +2,35 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>ISBN 스캐너 데모</title>
-  <script src="https://unpkg.com/quagga/dist/quagga.min.js"></script>
+  <title>ISBN 스캔 테스트 (ZXing)</title>
+  <script src="https://unpkg.com/@zxing/library@latest"></script>
 </head>
 <body>
-  <h1>📚 ISBN 스캔 테스트!</h1>
-  <div id="scanner" style="width: 100%; height: 300px;"></div>
-  <p>인식된 ISBN: <span id="result"></span></p>
+  <h1>📚 ISBN 스캔 테스트</h1>
+  <video id="video" width="300" height="200" style="border:1px solid black"></video>
+  <p>인식된 코드: <span id="result">아직 없음</span></p>
 
   <script>
-    Quagga.init({
-      inputStream: {
-        name: "Live",
-        type: "LiveStream",
-        target: document.querySelector('#scanner')
-      },
-      decoder: {
-        readers: ["ean_reader"] // ISBN13은 EAN-13 코드 기반
-      }
-    }, function (err) {
-      if (err) {
-        console.error(err);
-        return;
-      }
-      Quagga.start();
-    });
+    const codeReader = new ZXing.BrowserMultiFormatReader();
+    const video = document.getElementById('video');
+    const resultEl = document.getElementById('result');
 
-    Quagga.onDetected(function (data) {
-      const code = data.codeResult.code;
-      document.getElementById("result").innerText = code;
-      console.log("Scanned ISBN:", code);
-    });
+    codeReader
+      .listVideoInputDevices()
+      .then(videoInputDevices => {
+        // ✅ 후면 카메라 선택 (가능한 경우)
+        const deviceId = videoInputDevices.length > 1 
+            ? videoInputDevices[videoInputDevices.length - 1].deviceId 
+            : videoInputDevices[0].deviceId;
+
+        codeReader.decodeFromVideoDevice(deviceId, video, (result, err) => {
+          if (result) {
+            resultEl.textContent = result.getText();
+            console.log("📌 인식된 코드:", result.getText());
+          }
+        });
+      })
+      .catch(err => console.error(err));
   </script>
 </body>
 </html>

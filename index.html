@@ -2,31 +2,37 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>ISBN 스캔 테스트 (ZXing)!</title>
+  <title>ISBN 스캔 테스트 (EAN-13 전용)</title>
   <script src="https://unpkg.com/@zxing/library@latest"></script>
 </head>
 <body>
-  <h1>📚 ISBN 스캔 테스트</h1>
+  <h1>📚 ISBN 스캔 (EAN-13 전용)</h1>
   <video id="video" width="300" height="200" style="border:1px solid black"></video>
-  <p>인식된 코드: <span id="result">아직 없음</span></p>
+  <p>인식된 ISBN: <span id="result">아직 없음</span></p>
 
   <script>
-    const codeReader = new ZXing.BrowserMultiFormatReader();
+    const hints = new Map();
+    // ✅ ISBN은 대부분 EAN-13 바코드
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13]);
+    
+    const codeReader = new ZXing.BrowserMultiFormatReader(hints);
     const video = document.getElementById('video');
     const resultEl = document.getElementById('result');
 
     codeReader
       .listVideoInputDevices()
       .then(videoInputDevices => {
-        // ✅ 후면 카메라 선택 (가능한 경우)
-        const deviceId = videoInputDevices.length > 1 
-            ? videoInputDevices[videoInputDevices.length - 1].deviceId 
-            : videoInputDevices[0].deviceId;
+        const deviceId = videoInputDevices.length > 1
+          ? videoInputDevices[videoInputDevices.length - 1].deviceId
+          : videoInputDevices[0].deviceId;
 
         codeReader.decodeFromVideoDevice(deviceId, video, (result, err) => {
           if (result) {
             resultEl.textContent = result.getText();
-            console.log("📌 인식된 코드:", result.getText());
+            console.log("📌 인식된 ISBN:", result.getText());
+          }
+          if (err && !(err instanceof ZXing.NotFoundException)) {
+            console.error("에러 발생:", err);
           }
         });
       })

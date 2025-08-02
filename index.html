@@ -1,119 +1,42 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ISBN 스캔 개선 (Alert)</title>
+  <meta charset="UTF-8">
+  <title>ISBN 스캔 테스트 (EAN-13 전용)</title>
   <script src="https://unpkg.com/@zxing/library@latest"></script>
-  <style>
-    body { text-align: center; font-family: sans-serif; }
-    #video-container {
-      position: relative;
-      display: inline-block;
-    }
-    #video {
-      width: 320px;
-      height: 240px;
-      border: 1px solid black;
-    }
-    #overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 320px;
-      height: 240px;
-      pointer-events: none;
-    }
-    /* 빨간색 중앙 박스 */
-    #overlay::after {
-      content: '';
-      position: absolute;
-      top: 90px;   /* 중앙 근처 */
-      left: 60px;
-      width: 200px;
-      height: 60px;
-      border: 2px solid red;
-      box-sizing: border-box;
-    }
-    #log {
-      white-space: pre-line;
-      font-size: 14px;
-      background: #f4f4f4;
-      border: 1px solid #ccc;
-      padding: 10px;
-      max-height: 200px;
-      overflow-y: auto;
-      margin-top: 10px;
-    }
-  </style>
 </head>
 <body>
-  <h1>ISBN 스캔 (Alert)</h1>
-  <div id="video-container">
-    <video id="video"></video>
-    <div id="overlay"></div>
-  </div>
-  <p id="result">ISBN: </p>
-  <button id="start">스캔 시작</button>
-  <button id="reset">멈추기</button>
-
-  <h3>📜 로그</h3>
-  <div id="log"></div>
+  <h1>📚 ISBN 스캔 (EAN-13 전용)</h1>
+  <video id="video" width="300" height="200" style="border:1px solid black"></video>
+  <p>인식된 ISBN: <span id="result">아직 없음</span></p>
 
   <script>
-    const codeReader = new ZXing.BrowserMultiFormatReader();
-    let controls = null;
+    const hints = new Map();
+    // ✅ ISBN은 대부분 EAN-13 바코드
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13]);
+    
+    const codeReader = new ZXing.BrowserMultiFormatReader(hints);
+    const video = document.getElementById('video');
+    const resultEl = document.getElementById('result');
 
-    function log(msg) {
-      const logBox = document.getElementById("log");
-      logBox.textContent += msg + "\n";
-      logBox.scrollTop = logBox.scrollHeight;
-      console.log(msg);
-    }
+    codeReader
+      .listVideoInputDevices()
+      .then(videoInputDevices => {
+        const deviceId = videoInputDevices.length > 1
+          ? videoInputDevices[videoInputDevices.length - 1].deviceId
+          : videoInputDevices[0].deviceId;
 
-    document.getElementById('start').addEventListener('click', async () => {
-      try {
-        log("▶ 스캔 시작 요청됨");
-        const hints = new Map();
-        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13]);
-
-        controls = await codeReader.decodeFromVideoDevice(
-          null,
-          'video',
-          (result, err) => {
-            if (result) {
-              document.getElementById('result').textContent = "ISBN: " + result.text;
-              log("✅ 스캔 성공: " + result.text);
-              alert("ISBN: " + result.text); // ✅ 인식 즉시 alert
-              controls.stop();
-            }
-            if (err && !(err instanceof ZXing.NotFoundException)) {
-              log("⚠️ 에러: " + err);
-            }
-          },
-          { 
-            video: { 
-              facingMode: "environment",
-              width: { ideal: 640 },
-              height: { ideal: 480 }
-            },
-            hints
+        codeReader.decodeFromVideoDevice(deviceId, video, (result, err) => {
+          if (result) {
+            resultEl.textContent = result.getText();
+            console.log("📌 인식된 ISBN:", result.getText());
           }
-        );
-        log("📷 카메라 연결 성공");
-      } catch (err) {
-        log("❌ 카메라 연결 실패: " + err.message);
-        alert("카메라 접근 실패: 권한을 확인해주세요!");
-      }
-    });
-
-    document.getElementById('reset').addEventListener('click', () => {
-      if (controls) {
-        controls.stop();
-        document.getElementById('result').textContent = "ISBN: ";
-        log("⏹ 스캔 중지됨");
-      }
-    });
+          if (err && !(err instanceof ZXing.NotFoundException)) {
+            console.error("에러 발생:", err);
+          }
+        });
+      })
+      .catch(err => console.error(err));
   </script>
 </body>
 </html>
